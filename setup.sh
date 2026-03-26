@@ -62,7 +62,8 @@ if [ ! -d "$REPO_DIR/.venv" ]; then
     uv venv "$REPO_DIR/.venv"
     echo "  ✓ Virtual environment created"
 fi
-uv pip install huggingface-hub rich
+. "$REPO_DIR/.venv/bin/activate"
+uv pip install huggingface-hub rich requests
 echo "  ✓ Python dependencies installed"
 
 echo ""
@@ -125,4 +126,4 @@ echo "    --cache-type-k q4_0 --cache-type-v q4_0 \\"
 echo "    --n-gpu-layers 99 --reasoning off -np 1 -t 4"
 echo ""
 echo "Then run the agent:"
-echo "  source $REPO_DIR/.venv/bin/activate && python $REPO_DIR/agent.py"
+echo "  uv run python $REPO_DIR/agent.py"
