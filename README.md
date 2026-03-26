@@ -20,13 +20,17 @@ brew install llama.cpp
 ### 2. Install Python dependencies
 
 ```bash
-pip3 install huggingface-hub rich --break-system-packages
+uv init
+uv venv
+source .venv/bin/activate
+uv pip install huggingface-hub rich
 ```
 
 ### 3. Download the 35B MoE model (default — 30 tok/s via SSD paging)
 
 ```bash
 mkdir -p ~/models
+./download_model.sh
 python3 -c "
 from huggingface_hub import hf_hub_download
 hf_hub_download('unsloth/Qwen3.5-35B-A3B-GGUF',
