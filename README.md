@@ -12,59 +12,39 @@ Run a local coding agent on your MacBook via llama.cpp for free.
 ## Prerequisites
 
 - macOS with Apple Silicon (M1/M2/M3/M4, 16GB+ RAM recommended)
-- Homebrew installed (`/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`)
-- Python 3.13+
-- Go 1.25+ (`brew install go`)
+- Homebrew (`/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`)
+- uv (`brew install uv`)
+- Go (`brew install go`)
 
 ## Installation
 
-### 1. Install llama.cpp
-
 ```bash
-brew install llama.cpp
+./setup.sh
 ```
 
-### 2. Clone and set up Python environment
+This will:
+1. Check all prerequisites
+2. Install llama.cpp via Homebrew
+3. Create a virtual environment and install Python dependencies
+4. Download the Qwen3.5 35B model
 
-```bash
-git clone <repo-url>
-cd local-agent
-uv init
-uv venv
-source .venv/bin/activate
-uv sync
-```
+## Running
 
-### 3. Download a model
-
-Create the models directory and download a GGUF model:
-
-```bash
-mkdir -p ~/models
-
-python3 -c "
-from huggingface_hub import hf_hub_download
-hf_hub_download('unsloth/Qwen3.5-35B-A3B-GGUF',
-    'Qwen3.5-35B-A3B-UD-IQ2_M.gguf', local_dir='$HOME/models/')
-"
-```
-
-### 4. Start the LLM server
+### 1. Start the LLM server
 
 ```bash
 llama-server \
   --model ~/models/Qwen3.5-35B-A3B-UD-IQ2_M.gguf \
-  --ctx-size 32768 \
-  --n-gpu-layers 99 \
-  --port 8000 \
-  --host 127.0.0.1
+  --port 8000 --host 127.0.0.1 \
+  --flash-attn on --ctx-size 12288 \
+  --cache-type-k q4_0 --cache-type-v q4_0 \
+  --n-gpu-layers 99 --reasoning off -np 1 -t 4
 ```
 
-### 5. Run the agent
+### 2. Run the agent
 
 ```bash
-source .venv/bin/activate
-python agent.py
+uv run python agent.py
 ```
 
 ## Usage

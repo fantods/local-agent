@@ -7,6 +7,8 @@ from datetime import datetime
 from typing import Generator
 
 import requests
+import urllib.parse
+import html
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
@@ -228,6 +230,90 @@ Examples:
     return result.strip().strip("`").strip()
 
 
+def generate_search_query(user_query: str) -> str:
+    result, _ = llm_call(
+        [
+            {
+                "role": "system",
+                "content": "Convert the user's question into a concise search query. Output ONLY the search terms, nothing else. No explanation, no quotes.",
+            },
+            {"role": "user", "content": user_query},
+        ],
+        max_tokens=50,
+        temperature=0.0,
+    )
+    return result.strip().strip('"').strip("'").strip()
+
+
+def web_search(query: str, num_results: int = 5) -> list[dict]:
+    search_query = generate_search_query(query)
+    encoded = urllib.parse.quote(search_query)
+    url = f"https://html.duckduckgo.com/html/?q={encoded}"
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+    }
+
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+    except Exception as e:
+        return [{"error": f"Search failed: {e}"}]
+
+    results = []
+    html_content = response.text
+
+    import re
+
+    result_pattern = r'<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>([^<]+)</a>'
+    snippet_pattern = r'<a[^>]*class="result__snippet"[^>]*>([^<]+)</a>'
+
+    links = re.findall(result_pattern, html_content)
+    snippets = re.findall(snippet_pattern, html_content)
+
+    for i, (link, title) in enumerate(links[:num_results]):
+        clean_title = html.unescape(title)
+        snippet = html.unescape(snippets[i]) if i < len(snippets) else ""
+        results.append({"title": clean_title, "url": link, "snippet": snippet})
+
+    return results
+
+
+def run_search_tool(query: str) -> Generator[tuple[str, bool], None, None]:
+    yield ("Searching the web...", True)
+
+    results = web_search(query)
+
+    if results and "error" in results[0]:
+        yield (f"\n{results[0]['error']}\n", False)
+        return
+
+    yield ("\n\n", False)
+
+    search_context = "Search results:\n"
+    for i, r in enumerate(results, 1):
+        search_context += f"{i}. {r['title']}\n   {r['snippet']}\n   {r['url']}\n\n"
+
+    today = datetime.now().strftime("%A, %B %d, %Y")
+    messages = [
+        {
+            "role": "system",
+            "content": f"Today is {today}. You searched the web and got results. Answer the user's question based on the search results. Be helpful and cite sources when relevant.",
+        },
+        {
+            "role": "user",
+            "content": f"Question: {query}\n\n{search_context}",
+        },
+    ]
+
+    summary_parts = []
+    for chunk in llm_stream(messages, max_tokens=1000):
+        summary_parts.append(chunk)
+
+    summary = "".join(summary_parts)
+    yield (summary, False)
+
+
 def run_smart_tool(
     query: str, work_dir: str = "."
 ) -> Generator[tuple[str, bool], None, None]:
@@ -353,12 +439,20 @@ def chat_loop():
 
             history.append({"role": "assistant", "content": response_text})
 
-        else:
-            if intent == "search":
-                console.print(
-                    "[dim]Intent: search (not implemented, chatting instead)[/dim]"
-                )
+        elif intent == "search":
+            console.print("[dim]Intent: web search[/dim]")
+            response_text = ""
+            with Live(console=console, refresh_per_second=30) as live:
+                for text, is_markup in run_search_tool(user_input):
+                    response_text += text
+                    if is_markup:
+                        live.update(Text.from_markup(f"[dim]{text}[/dim]"))
+                    else:
+                        live.update(Text(text))
 
+            history.append({"role": "assistant", "content": response_text})
+
+        else:
             response_text = ""
             console.print("[bold blue]Assistant[/bold blue]: ", end="")
 
