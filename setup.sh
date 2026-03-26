@@ -85,36 +85,6 @@ hf_hub_download('unsloth/Qwen3.5-35B-A3B-GGUF',
 fi
 
 echo ""
-echo "[5/6] Building PicoClaw..."
-if [ -d "$REPO_DIR/picoclaw" ]; then
-    echo "  PicoClaw directory exists, updating..."
-    cd "$REPO_DIR/picoclaw" && git pull
-else
-    echo "  Cloning PicoClaw..."
-    git clone https://github.com/sipeed/picoclaw.git "$REPO_DIR/picoclaw"
-fi
-
-cd "$REPO_DIR/picoclaw"
-make deps
-make build
-echo "  ✓ PicoClaw built"
-
-echo ""
-echo "[6/6] Configuring PicoClaw..."
-mkdir -p ~/.picoclaw/workspace
-
-if [ -f "$REPO_DIR/config.example.json" ]; then
-    if [ ! -f ~/.picoclaw/config.json ]; then
-        cp "$REPO_DIR/config.example.json" ~/.picoclaw/config.json
-        echo "  ✓ Config copied to ~/.picoclaw/config.json"
-    else
-        echo "  ✓ Config already exists"
-    fi
-else
-    echo "  ⚠ config.example.json not found in repo, skipping config copy"
-fi
-
-echo ""
 echo "=== Setup Complete ==="
 echo ""
 echo "To start the LLM server:"
